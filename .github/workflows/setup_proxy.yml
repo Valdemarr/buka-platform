@@ -1,0 +1,54 @@
+name: Setup Apache Proxy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Explore web root and set up proxy
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
+          echo "=== Web root structure ==="
+          ls -la ~/
+          ls -la ~/www/ 2>/dev/null || echo "no ~/www"
+          ls -la ~/public_html/ 2>/dev/null || echo "no ~/public_html"
+          ls -la /var/www/buka.dk/ 2>/dev/null || echo "no /var/www/buka.dk"
+          
+          echo "=== Apache config ==="
+          cat ~/.htaccess 2>/dev/null || echo "no ~/.htaccess"
+          cat ~/www/.htaccess 2>/dev/null || echo "no ~/www/.htaccess"
+          
+          echo "=== Apache modules ==="
+          cat /etc/apache2/mods-enabled/ 2>/dev/null | head -10 || echo "can't read apache config"
+          
+          echo "=== Check if mod_proxy works in htaccess ==="
+          # Create test .htaccess with proxy to port 5000
+          # Simply.com uses /var/www/buka.dk as webroot based on earlier log
+          WEBROOT=""
+          if [ -d /var/www/buka.dk ]; then WEBROOT=/var/www/buka.dk; fi
+          if [ -d ~/www ]; then WEBROOT=~/www; fi  
+          if [ -d ~/public_html ]; then WEBROOT=~/public_html; fi
+          echo "Web root: $WEBROOT"
+          ls -la $WEBROOT 2>/dev/null | head -10
+          
+          # Write .htaccess proxy rule
+          if [ -n "$WEBROOT" ]; then
+            cat > $WEBROOT/.htaccess << 'HTEOF'
+Options -MultiViews
+RewriteEngine On
+RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+ProxyPassReverse / http://127.0.0.1:5000/
+HTEOF
+            echo "Wrote .htaccess to $WEBROOT"
+            cat $WEBROOT/.htaccess
+          fi
+          SSHEOF
