@@ -18,56 +18,32 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Upload files
+      - name: Upload all files
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "mkdir -p ~/buka/templates"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "mkdir -p ~/buka/templates ~/public_html"
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py crawler.py buka.dk@buka.dk:~/buka/
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no templates/*.html buka.dk@buka.dk:~/buka/templates/
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no public_html/index.php public_html/.htaccess buka.dk@buka.dk:~/public_html/
 
-      - name: Deploy app + write htaccess proxy
+      - name: Start app and crawler
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
-          export PATH="$HOME/.local/bin:$PATH"
-          
-          # Restart app
-          cd ~/buka
-          python3 -m pip install flask gunicorn --user --quiet 2>&1 | tail -2
-          python3 -c "from app import init_db; init_db()" 2>/dev/null
-          pkill -f "gunicorn.*app" 2>/dev/null || true
-          sleep 1
-          SECRET_KEY="buka-$(date +%s)" nohup gunicorn \
-            --bind 127.0.0.1:5000 --workers 2 --daemon \
-            --access-logfile ~/buka/access.log \
-            --error-logfile ~/buka/error.log app:app
-          sleep 3
-          
-          # Health check
-          echo "App health:"
-          curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>'
-          
-          # Write Apache proxy .htaccess to web root
-          WEBROOT="$HOME/public_html"
-          echo "Web root: $WEBROOT"
-          ls -la "$WEBROOT" 2>/dev/null || echo "doesn't exist yet"
-          mkdir -p "$WEBROOT"
-          
-          cat > "$WEBROOT/.htaccess" << 'HTEOF'
-RewriteEngine On
-RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
-ProxyPassReverse / http://127.0.0.1:5000/
-HTEOF
-          echo "Wrote .htaccess:"
-          cat "$WEBROOT/.htaccess"
-          
-          # Test via public URL
-          sleep 2
-          echo "Public test:"
-          curl -sI https://buka.dk/ | head -5
-          
-          # Start crawler
-          pkill -f "crawler.py" 2>/dev/null || true
-          COUNT=$(python3 -c "import sqlite3; db=sqlite3.connect('/var/www/buka.dk/buka/buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])" 2>/dev/null || echo 0)
-          echo "Companies in DB: $COUNT"
-          nohup python3 ~/buka/crawler.py --limit 5000 > ~/buka/crawler.log 2>&1 &
-          echo "Crawler PID: $!"
-          SSHEOF
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk bash -s << 'SCRIPT'
+            export PATH="$HOME/.local/bin:$PATH"
+            cd ~/buka
+            python3 -m pip install flask gunicorn --user --quiet 2>&1 | tail -2
+            python3 -c "from app import init_db; init_db(); print('DB OK')"
+            pkill -f "gunicorn.*app" 2>/dev/null || true
+            sleep 1
+            SECRET_KEY="buka-$(date +%s)" nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app
+            sleep 3
+            echo "Health check:"
+            curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>'
+            echo "PHP proxy files:"
+            ls -la ~/public_html/
+            echo "Crawler:"
+            pkill -f "crawler.py" 2>/dev/null || true
+            COUNT=$(python3 -c "import sqlite3; db=sqlite3.connect('buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])" 2>/dev/null || echo 0)
+            echo "Companies: $COUNT"
+            nohup python3 ~/buka/crawler.py --limit 5000 > ~/buka/crawler.log 2>&1 &
+            echo "Crawler PID: $!"
+          SCRIPT
