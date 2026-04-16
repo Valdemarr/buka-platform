@@ -16,81 +16,58 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p 22 buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Explore server environment
+      - name: Upload and deploy
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
-          echo "=== Environment ==="
-          echo "User: $(whoami) | Home: $HOME | PWD: $(pwd)"
-          echo "=== Python ==="
-          which python3 && python3 --version
-          python3 -c "import pip; print('pip version:', pip.__version__)" 2>/dev/null || echo "no pip module"
-          python3 -m pip --version 2>/dev/null || echo "pip not available via -m"
-          ls ~/
-          echo "=== Site packages ==="
-          python3 -c "import site; print(site.getsitepackages())" 2>/dev/null || echo "N/A"
-          echo "=== Available packages ==="
-          python3 -c "import flask; print('flask OK:', flask.__version__)" 2>/dev/null || echo "flask not installed"
-          python3 -c "import gunicorn; print('gunicorn OK')" 2>/dev/null || echo "gunicorn not installed"
-          SSHEOF
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "mkdir -p ~/buka/templates"
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py crawler.py buka.dk@buka.dk:~/buka/
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no templates/*.html buka.dk@buka.dk:~/buka/templates/
 
-      - name: Upload app files
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk \
-            "mkdir -p ~/buka/templates"
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            app.py crawler.py \
-            buka.dk@buka.dk:~/buka/
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            templates/*.html \
-            buka.dk@buka.dk:~/buka/templates/
-
-      - name: Install packages via pip --user
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
-          echo "=== Installing pip packages ==="
-          # Try pip install --user (no venv needed)
-          python3 -m pip install flask gunicorn --user --quiet 2>&1 | tail -5
-          echo "Install done. Checking:"
-          python3 -c "import flask; print('flask:', flask.__version__)" 2>/dev/null || echo "flask FAILED"
-          python3 -c "import gunicorn; print('gunicorn OK')" 2>/dev/null || echo "gunicorn FAILED"
-          # Add user bin to PATH
-          export PATH="$HOME/.local/bin:$PATH"
-          which gunicorn 2>/dev/null || echo "gunicorn not in PATH"
-          SSHEOF
-
-      - name: Start application
+      - name: Configure and start app
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
           export PATH="$HOME/.local/bin:$PATH"
           cd ~/buka
-          
+
+          echo "=== Python packages ==="
+          python3 -m pip install flask gunicorn --user --quiet 2>&1 | tail -3
+          python3 -c "import flask; print('flask', flask.__version__)"
+
           echo "=== Init DB ==="
           python3 -c "from app import init_db; init_db(); print('DB OK')"
-          
-          echo "=== Starting gunicorn ==="
+
+          echo "=== Restart app ==="
           pkill -f "gunicorn.*app" 2>/dev/null || true
           sleep 1
-          
-          SECRET_KEY="buka-prod-$(date +%s)" nohup gunicorn \
-            --bind 0.0.0.0:5000 \
-            --workers 2 \
-            --daemon \
-            --chdir ~/buka \
+          SECRET_KEY="buka-$(date +%s)" nohup gunicorn \
+            --bind 0.0.0.0:5000 --workers 2 --daemon \
             --access-logfile ~/buka/access.log \
             --error-logfile ~/buka/error.log \
             app:app
-          
-          sleep 4
-          echo "=== Health check ==="
+          sleep 3
           curl -s http://localhost:5000/ | grep -o '<title>.*</title>'
-          
-          echo "=== Start crawler ==="
+
+          echo "=== Find web root ==="
+          for DIR in /var/www/buka.dk /var/www/html ~/www ~/public_html; do
+            if [ -d "$DIR" ]; then echo "Found: $DIR"; ls "$DIR" | head -5; WEBROOT="$DIR"; fi
+          done
+
+          echo "=== Write .htaccess proxy ==="
+          if [ -n "$WEBROOT" ]; then
+            cat > "$WEBROOT/.htaccess" << 'HTEOF'
+RewriteEngine On
+RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+ProxyPassReverse / http://127.0.0.1:5000/
+HTEOF
+            echo "Wrote .htaccess to $WEBROOT"
+            cat "$WEBROOT/.htaccess"
+          fi
+
+          echo "=== Crawler ==="
           COUNT=$(python3 -c "import sqlite3; db=sqlite3.connect('buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])" 2>/dev/null || echo 0)
           echo "Companies: $COUNT"
-          if [ "$COUNT" -lt 100 ]; then
-            nohup python3 crawler.py --limit 5000 > ~/buka/crawler.log 2>&1 &
-            echo "Crawler PID: $!"
-          fi
+          pkill -f "crawler.py" 2>/dev/null || true
+          nohup python3 crawler.py --limit 5000 > ~/buka/crawler.log 2>&1 &
+          echo "Crawler PID: $!"
           SSHEOF
