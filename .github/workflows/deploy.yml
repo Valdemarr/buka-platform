@@ -11,40 +11,79 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up SSH
+      - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
-          # Also try IP directly
           ssh-keyscan -H 93.191.156.89 >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Copy files to server
+      - name: Test SSH connection
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
-            --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
-            --exclude='buka.db' --exclude='venv' \
-            --exclude='*.log' \
-            ./ esben@buka.dk:/var/www/buka/
+          ssh -i ~/.ssh/id_ed25519 \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=15 \
+            esben@buka.dk "echo 'SSH OK'; pwd; ls -la; which python3 || which python; python3 --version 2>/dev/null || python --version"
 
-      - name: Run deploy script
+      - name: Create app directory
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            esben@buka.dk \
-            "cd /var/www/buka && bash deploy.sh"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no esben@buka.dk \
+            "mkdir -p ~/buka/{templates,static}"
 
-      - name: Set up nginx config (if not exists)
+      - name: Upload files via SCP
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            esben@buka.dk << 'SSHEOF'
-          # Check if nginx is available
-          if command -v nginx &>/dev/null; then
-            echo "nginx available"
-          else
-            echo "no nginx — app runs on port 5000 directly"
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            app.py crawler.py deploy.sh \
+            esben@buka.dk:~/buka/
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            templates/*.html \
+            esben@buka.dk:~/buka/templates/
+
+      - name: Deploy and start app
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no esben@buka.dk << 'SSHEOF'
+          cd ~/buka
+          
+          # Check Python
+          PYTHON=$(which python3 2>/dev/null || which python 2>/dev/null)
+          echo "Python: $PYTHON"
+          $PYTHON --version
+          
+          # Install pip if needed
+          $PYTHON -m ensurepip --upgrade 2>/dev/null || true
+          
+          # Create venv
+          $PYTHON -m venv venv 2>/dev/null || true
+          
+          # Install dependencies
+          venv/bin/pip install flask gunicorn --quiet 2>&1 | tail -3
+          
+          # Initialize DB
+          venv/bin/python -c "from app import init_db; init_db()" && echo "DB OK"
+          
+          # Kill existing app
+          pkill -f "gunicorn.*app:app" 2>/dev/null || true
+          sleep 1
+          
+          # Start app on port 5000
+          SECRET_KEY="buka-$(date +%s)" nohup venv/bin/gunicorn \
+            --bind 0.0.0.0:5000 \
+            --workers 2 \
+            --daemon \
+            --access-logfile ~/buka/access.log \
+            --error-logfile ~/buka/error.log \
+            app:app
+          
+          sleep 3
+          echo "Health check:"
+          curl -s http://localhost:5000/ | grep -o '<title>.*</title>' || echo "No title found"
+          
+          # Run crawler in background to seed the database
+          COUNT=$(venv/bin/python -c "import sqlite3; db=sqlite3.connect('buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])")
+          echo "Companies in DB: $COUNT"
+          if [ "$COUNT" -lt 100 ]; then
+            nohup venv/bin/python crawler.py --limit 2000 --no-scrape > crawler.log 2>&1 &
+            echo "Crawler started: PID $!"
           fi
-          # Check if port 80 is being proxied
-          curl -s http://localhost:5000/ | head -5
           SSHEOF
