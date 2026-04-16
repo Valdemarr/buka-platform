@@ -18,57 +18,79 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p 22 buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Check server environment
+      - name: Explore server environment
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk \
-            "echo 'User:' $(whoami); echo 'Home:' $HOME; pwd; ls -la; python3 --version 2>/dev/null || echo 'no python3'; which pip3 2>/dev/null || echo 'no pip3'"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
+          echo "=== Environment ==="
+          echo "User: $(whoami) | Home: $HOME | PWD: $(pwd)"
+          echo "=== Python ==="
+          which python3 && python3 --version
+          python3 -c "import pip; print('pip version:', pip.__version__)" 2>/dev/null || echo "no pip module"
+          python3 -m pip --version 2>/dev/null || echo "pip not available via -m"
+          ls ~/
+          echo "=== Site packages ==="
+          python3 -c "import site; print(site.getsitepackages())" 2>/dev/null || echo "N/A"
+          echo "=== Available packages ==="
+          python3 -c "import flask; print('flask OK:', flask.__version__)" 2>/dev/null || echo "flask not installed"
+          python3 -c "import gunicorn; print('gunicorn OK')" 2>/dev/null || echo "gunicorn not installed"
+          SSHEOF
 
-      - name: Create app directory and upload files
+      - name: Upload app files
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk \
-            "mkdir -p ~/buka/templates ~/buka/static"
-          
+            "mkdir -p ~/buka/templates"
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
-            app.py crawler.py deploy.sh \
+            app.py crawler.py \
             buka.dk@buka.dk:~/buka/
-          
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
             templates/*.html \
             buka.dk@buka.dk:~/buka/templates/
 
-      - name: Install dependencies and start app
+      - name: Install packages via pip --user
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
+          echo "=== Installing pip packages ==="
+          # Try pip install --user (no venv needed)
+          python3 -m pip install flask gunicorn --user --quiet 2>&1 | tail -5
+          echo "Install done. Checking:"
+          python3 -c "import flask; print('flask:', flask.__version__)" 2>/dev/null || echo "flask FAILED"
+          python3 -c "import gunicorn; print('gunicorn OK')" 2>/dev/null || echo "gunicorn FAILED"
+          # Add user bin to PATH
+          export PATH="$HOME/.local/bin:$PATH"
+          which gunicorn 2>/dev/null || echo "gunicorn not in PATH"
+          SSHEOF
+
+      - name: Start application
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk << 'SSHEOF'
+          export PATH="$HOME/.local/bin:$PATH"
           cd ~/buka
-          echo "=== Setting up Python environment ==="
-          python3 -m venv venv 2>&1 | tail -2
-          venv/bin/pip install flask gunicorn --quiet 2>&1 | tail -3
           
-          echo "=== Initializing database ==="
-          venv/bin/python -c "from app import init_db; init_db(); print('DB OK')"
+          echo "=== Init DB ==="
+          python3 -c "from app import init_db; init_db(); print('DB OK')"
           
-          echo "=== Starting application ==="
-          pkill -f "gunicorn.*app:app" 2>/dev/null || true
+          echo "=== Starting gunicorn ==="
+          pkill -f "gunicorn.*app" 2>/dev/null || true
           sleep 1
           
-          SECRET_KEY="buka-$(openssl rand -hex 16 2>/dev/null || date +%s)" \
-          nohup venv/bin/gunicorn \
+          SECRET_KEY="buka-prod-$(date +%s)" nohup gunicorn \
             --bind 0.0.0.0:5000 \
             --workers 2 \
             --daemon \
+            --chdir ~/buka \
             --access-logfile ~/buka/access.log \
             --error-logfile ~/buka/error.log \
             app:app
           
           sleep 4
           echo "=== Health check ==="
-          curl -s http://localhost:5000/ | grep -o '<title>.*</title>' || echo "App not responding on 5000"
+          curl -s http://localhost:5000/ | grep -o '<title>.*</title>'
           
-          echo "=== Starting crawler ==="
-          COUNT=$(venv/bin/python -c "import sqlite3; db=sqlite3.connect('buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])" 2>/dev/null || echo 0)
+          echo "=== Start crawler ==="
+          COUNT=$(python3 -c "import sqlite3; db=sqlite3.connect('buka.db'); print(db.execute('SELECT COUNT(*) FROM companies').fetchone()[0])" 2>/dev/null || echo 0)
           echo "Companies: $COUNT"
-          if [ "$COUNT" -lt 200 ]; then
-            nohup venv/bin/python crawler.py --limit 3000 > ~/buka/crawler.log 2>&1 &
-            echo "Crawler started PID $!"
+          if [ "$COUNT" -lt 100 ]; then
+            nohup python3 crawler.py --limit 5000 > ~/buka/crawler.log 2>&1 &
+            echo "Crawler PID: $!"
           fi
           SSHEOF
