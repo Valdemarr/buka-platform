@@ -1,0 +1,50 @@
+name: Deploy BUKA to buka.dk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Also try IP directly
+          ssh-keyscan -H 93.191.156.89 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Copy files to server
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+            --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
+            --exclude='buka.db' --exclude='venv' \
+            --exclude='*.log' \
+            ./ esben@buka.dk:/var/www/buka/
+
+      - name: Run deploy script
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            esben@buka.dk \
+            "cd /var/www/buka && bash deploy.sh"
+
+      - name: Set up nginx config (if not exists)
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            esben@buka.dk << 'SSHEOF'
+          # Check if nginx is available
+          if command -v nginx &>/dev/null; then
+            echo "nginx available"
+          else
+            echo "no nginx — app runs on port 5000 directly"
+          fi
+          # Check if port 80 is being proxied
+          curl -s http://localhost:5000/ | head -5
+          SSHEOF

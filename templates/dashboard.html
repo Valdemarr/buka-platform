@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — BUKA{% endblock %}
+{% block head %}
+<style>
+.db-layout{display:grid;grid-template-columns:240px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:768px){.db-layout{grid-template-columns:1fr}}
+
+/* Sidebar */
+.sidebar .card{margin-bottom:1rem}
+.sidebar h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:700;margin-bottom:10px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bg);font-size:.85rem}
+.stat-row .n{font-weight:800;color:var(--blue)}
+.plan-badge{background:#EFF6FF;color:var(--blue);font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:20px}
+.leads-left{font-size:2rem;font-weight:900;color:var(--blue);line-height:1}
+
+/* Filters */
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.2rem;align-items:center}
+.filters select,.filters input[type=text]{padding:.55rem .8rem;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;background:#fff}
+.filters label{font-size:.82rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:6px}
+.filters input[type=checkbox]{width:16px;height:16px}
+
+/* Lead table */
+.leads-table{width:100%;border-collapse:collapse;font-size:.875rem}
+.leads-table th{background:var(--bg);padding:10px 14px;text-align:left;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px;color:var(--gray);white-space:nowrap}
+.leads-table td{padding:12px 14px;border-bottom:1px solid var(--bg);vertical-align:top}
+.leads-table tr:hover td{background:#f9fafb}
+.co-name{font-weight:700;color:#111;margin-bottom:2px}
+.co-meta{font-size:.78rem;color:var(--gray)}
+.email-badge{background:#EFF6FF;color:var(--blue);font-size:.75rem;padding:2px 8px;border-radius:4px;font-weight:600}
+.no-email{color:#d1d5db;font-size:.78rem}
+.score-bar{height:6px;background:#e5e7eb;border-radius:3px;width:80px;overflow:hidden;margin-top:4px}
+.score-bar-fill{height:100%;background:var(--blue);border-radius:3px}
+.btn-claim{background:var(--blue);color:#fff;border:none;padding:.45rem .9rem;border-radius:6px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-claim:hover{background:var(--blue-d)}
+.btn-claimed{background:#e5e7eb;color:var(--gray);border:none;padding:.45rem .9rem;border-radius:6px;font-size:.78rem;cursor:default}
+
+/* Claimed leads */
+.claimed-section{margin-top:1.5rem}
+.claimed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:.75rem}
+.claimed-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:3px solid var(--blue)}
+.claimed-card .co{font-weight:800;margin-bottom:4px}
+.claimed-card .meta{font-size:.78rem;color:var(--gray);margin-bottom:8px}
+.claimed-card .contact{font-size:.83rem;color:#374151}
+.claimed-card a{color:var(--blue)}
+.claimed-card .exp{font-size:.72rem;color:var(--gray);margin-top:6px}
+
+/* Pagination */
+.pagination{display:flex;gap:8px;justify-content:center;margin-top:1.2rem;flex-wrap:wrap}
+.pagination a,.pagination span{padding:.45rem .9rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:#fff}
+.pagination .active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pagination a:hover{background:var(--bg)}
+
+.empty{text-align:center;padding:3rem;color:var(--gray)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="db-layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="card">
+      <h3>Din konto</h3>
+      <p style="font-weight:700;margin-bottom:4px">{{ user.name or user.email }}</p>
+      <p style="font-size:.82rem;color:var(--gray);margin-bottom:10px">{{ user.company or '—' }}</p>
+      <span class="plan-badge">{{ user.plan|upper }} plan</span>
+      <div style="margin-top:14px">
+        <div style="font-size:.78rem;color:var(--gray);margin-bottom:4px">Leads tilbage</div>
+        <div class="leads-left">{{ user.leads_left }}</div>
+        {% if user.leads_left == 0 %}
+        <p style="font-size:.78rem;color:#dc2626;margin-top:4px">Opgradér for at fortsætte →</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Database</h3>
+      <div class="stat-row"><span>Virksomheder</span><span class="n">{{ "{:,}".format(stats.total_leads) }}</span></div>
+      <div class="stat-row"><span>Med email</span><span class="n">{{ "{:,}".format(stats.with_email) }}</span></div>
+      <div class="stat-row"><span>Dine leads</span><span class="n">{{ stats.claimed }}</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Brancher</h3>
+      {% for ind in industries[:12] %}
+      <div style="font-size:.78rem;display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg)">
+        <a href="?industry={{ ind.industry|urlencode }}" style="color:#374151;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ind.industry[:28] }}</a>
+        <span style="color:var(--gray);margin-left:8px">{{ ind.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div>
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="font-size:1.1rem;font-weight:800">Leads — {{ total }} resultater</h2>
+        <span style="font-size:.82rem;color:var(--gray)">Side {{ page }} / {{ pages }}</span>
+      </div>
+
+      <!-- Filters -->
+      <form method="GET" class="filters">
+        <select name="industry" onchange="this.form.submit()">
+          <option value="">Alle brancher</option>
+          {% for ind in industries %}
+          <option value="{{ ind.industry }}" {% if filters.industry==ind.industry %}selected{% endif %}>{{ ind.industry }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="city" placeholder="By..." value="{{ filters.city }}"
+               style="width:130px" onchange="this.form.submit()">
+        <label>
+          <input type="checkbox" name="has_email" value="1" {% if filters.has_email %}checked{% endif %} onchange="this.form.submit()">
+          Kun med email
+        </label>
+        {% if filters.industry or filters.city or filters.has_email %}
+        <a href="/dashboard" style="font-size:.82rem;color:var(--gray)">Nulstil</a>
+        {% endif %}
+      </form>
+
+      {% if companies %}
+      <table class="leads-table">
+        <thead>
+          <tr>
+            <th>Virksomhed</th>
+            <th>Branche</th>
+            <th>Email</th>
+            <th>Telefon</th>
+            <th>Score</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="leads-body">
+          {% for c in companies %}
+          <tr id="row-{{ c.id }}">
+            <td>
+              <div class="co-name">{{ c.name }}</div>
+              <div class="co-meta">{{ c.city or '—' }}{% if c.founded %} · Est. {{ c.founded }}{% endif %}</div>
+              {% if c.website %}<div class="co-meta"><a href="{{ c.website }}" target="_blank" style="color:var(--blue)">{{ c.website[:35] }}</a></div>{% endif %}
+            </td>
+            <td style="font-size:.8rem;color:var(--gray);max-width:120px">{{ c.industry or '—' }}</td>
+            <td>
+              {% if c.email %}
+              <span class="email-badge">● email</span>
+              {% else %}
+              <span class="no-email">ingen email</span>
+              {% endif %}
+            </td>
+            <td style="font-size:.82rem">{{ c.phone or '—' }}</td>
+            <td>
+              <div class="score-bar"><div class="score-bar-fill" style="width:{{ [c.score, 100]|min }}%"></div></div>
+              <span style="font-size:.72rem;color:var(--gray)">{{ c.score }}</span>
+            </td>
+            <td>
+              {% if user.leads_left > 0 %}
+              <button class="btn-claim" onclick="claimLead({{ c.id }}, this)">Claim</button>
+              {% else %}
+              <button class="btn-claimed" disabled>Opgrader</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        {% if page > 1 %}<a href="?page={{ page-1 }}&industry={{ filters.industry }}&city={{ filters.city }}&has_email={{ filters.has_email }}">← Forrige</a>{% endif %}
+        {% for p in range([1, page-2]|max, [pages+1, page+3]|min) %}
+          {% if p == page %}<span class="active">{{ p }}</span>
+          {% else %}<a href="?page={{ p }}&industry={{ filters.industry }}&city={{ filters.city }}&has_email={{ filters.has_email }}">{{ p }}</a>{% endif %}
+        {% endfor %}
+        {% if page < pages %}<a href="?page={{ page+1 }}&industry={{ filters.industry }}&city={{ filters.city }}&has_email={{ filters.has_email }}">Næste →</a>{% endif %}
+      </div>
+
+      {% else %}
+      <div class="empty">
+        <p style="font-size:1.5rem;margin-bottom:8px">🔍</p>
+        <p>Ingen leads fundet med disse filtre. Prøv at justere søgningen.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Claimed leads -->
+    {% if claimed %}
+    <div class="claimed-section">
+      <h2 style="font-size:1rem;font-weight:800;margin-bottom:.75rem">Dine aktive leads ({{ claimed|length }})</h2>
+      <div class="claimed-grid">
+        {% for cl in claimed %}
+        <div class="claimed-card">
+          <div class="co">{{ cl.company_name }}</div>
+          <div class="meta">{{ cl.industry or '—' }} · {{ cl.company_city or '—' }}</div>
+          {% if cl.company_email %}
+          <div class="contact"><a href="mailto:{{ cl.company_email }}">{{ cl.company_email }}</a></div>
+          {% endif %}
+          {% if cl.phone %}
+          <div class="contact">{{ cl.phone }}</div>
+          {% endif %}
+          {% if cl.website %}
+          <div class="contact"><a href="{{ cl.website }}" target="_blank">{{ cl.website[:40] }}</a></div>
+          {% endif %}
+          <div class="exp">Udløber {{ cl.expires_at[:10] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="claim-toast" style="display:none;position:fixed;bottom:24px;right:24px;background:#111;color:#fff;padding:14px 20px;border-radius:10px;font-size:.88rem;box-shadow:0 4px 20px rgba(0,0,0,.3);z-index:999"></div>
+
+<script>
+async function claimLead(id, btn) {
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await fetch(`/claim/${id}`, {method:'POST'});
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      btn.className = 'btn-claimed';
+      btn.textContent = 'Claimet ✓';
+      showToast(`✓ ${data.company.name} claimet! Tjek dine aktive leads.`);
+      // Update leads_left counter
+      const counter = document.querySelector('.leads-left');
+      if (counter) counter.textContent = Math.max(0, parseInt(counter.textContent) - 1);
+      // Reload claimed section after delay
+      setTimeout(() => location.reload(), 3000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Claim';
+      showToast(data.error || 'Fejl — prøv igen', true);
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Claim';
+    showToast('Fejl — prøv igen', true);
+  }
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('claim-toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#dc2626' : '#111';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 4000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Opret konto — BUKA{% endblock %}
+{% block head %}
+<style>
+.auth-wrap{max-width:440px;margin:60px auto}
+.auth-wrap h1{font-size:1.6rem;font-weight:900;margin-bottom:6px;letter-spacing:-.3px}
+.auth-wrap .sub{color:var(--gray);font-size:.9rem;margin-bottom:28px}
+label{display:block;font-size:.82rem;font-weight:600;color:#374151;margin-bottom:4px;margin-top:14px}
+input,select{width:100%;padding:.8rem 1rem;border:1.5px solid var(--border);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff;transition:border .2s}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+.btn-full{width:100%;padding:.9rem;font-size:1rem;margin-top:20px;border-radius:10px}
+.login-link{text-align:center;font-size:.85rem;color:var(--gray);margin-top:16px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="card">
+    <h1>Opret konto</h1>
+    <p class="sub">Gratis — 5 leads inkluderet med det samme</p>
+
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label>Dit navn</label>
+          <input name="name" type="text" placeholder="Simon" required>
+        </div>
+        <div>
+          <label>Bureau / firma</label>
+          <input name="company" type="text" placeholder="WebGain">
+        </div>
+      </div>
+      <label>Email</label>
+      <input name="email" type="email" placeholder="din@email.dk" required>
+      <label>Adgangskode</label>
+      <input name="password" type="password" placeholder="Min. 6 tegn" required>
+      <label>Din specialitet</label>
+      <select name="specialty" required>
+        <option value="">Vælg...</option>
+        <option value="google-ads">Google Ads / PPC</option>
+        <option value="seo">SEO</option>
+        <option value="webdesign">Webdesign / Webshop</option>
+        <option value="social-media">Social Media</option>
+        <option value="email-marketing">Email Marketing</option>
+        <option value="branding">Branding & Design</option>
+        <option value="performance">Performance Marketing</option>
+        <option value="other">Andet</option>
+      </select>
+      <button type="submit" class="btn btn-full">Opret konto →</button>
+    </form>
+    <p class="login-link">Har du allerede en konto? <a href="/login">Log ind her</a></p>
+  </div>
+</div>
+{% endblock %}

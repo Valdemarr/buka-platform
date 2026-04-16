@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}BUKA — Kvalificerede leads til danske bureauer{% endblock %}
+{% block head %}
+<style>
+.hero{text-align:center;padding:80px 24px 60px;max-width:680px;margin:0 auto}
+.hero h1{font-size:clamp(2.2rem,5vw,3.2rem);font-weight:900;line-height:1.1;letter-spacing:-.5px;margin-bottom:1.2rem}
+.hero h1 em{color:var(--blue);font-style:normal}
+.hero p{font-size:1.1rem;color:var(--gray);line-height:1.65;margin-bottom:2.5rem}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-btns .btn{padding:.85rem 2rem;font-size:1rem}
+.stats{display:flex;gap:40px;justify-content:center;flex-wrap:wrap;padding:2rem;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:0 auto 60px;max-width:600px}
+.stat{text-align:center}
+.stat .n{font-size:2rem;font-weight:900;color:var(--blue);line-height:1}
+.stat .l{font-size:.8rem;color:var(--gray);margin-top:4px}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:60px}
+.feat{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.feat .icon{font-size:1.8rem;margin-bottom:10px}
+.feat h3{font-weight:800;margin-bottom:6px}
+.feat p{font-size:.88rem;color:var(--gray);line-height:1.6}
+</style>
+{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Danmarks leads<br><em>på én platform</em></h1>
+  <p>BUKA samler og kvalificerer data fra det danske CVR-register og virksomheders hjemmesider — så du kan finde præcis de kunder, du vil have.</p>
+  <div class="hero-btns">
+    <a href="/register" class="btn">Start gratis — 5 leads inkluderet</a>
+    <a href="/login" class="btn btn-outline">Log ind</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="n">{{ "{:,}".format(stats.companies) }}</div>
+    <div class="l">Virksomheder i databasen</div>
+  </div>
+  <div class="stat">
+    <div class="n">{{ "{:,}".format(stats.with_email) }}</div>
+    <div class="l">Med verificeret email</div>
+  </div>
+  <div class="stat">
+    <div class="n">{{ stats.industries }}</div>
+    <div class="l">Brancher</div>
+  </div>
+</div>
+
+<div class="features">
+  <div class="feat">
+    <div class="icon">🏢</div>
+    <h3>Eget datagrundlag</h3>
+    <p>Vi crawl'er CVR og virksomhedernes egne hjemmesider — ingen tredjepartsdata, ingen delt database med konkurrenterne.</p>
+  </div>
+  <div class="feat">
+    <div class="icon">🎯</div>
+    <h3>Filtrer præcist</h3>
+    <p>Branche, by, størrelse, med email — find de specifikke virksomheder der matcher dit bureau.</p>
+  </div>
+  <div class="feat">
+    <div class="icon">🔒</div>
+    <h3>30 dages eksklusivitet</h3>
+    <p>Når du claimer et lead, er det dit i 30 dage. Ingen andre bureauer kan tage det fra dig i den periode.</p>
+  </div>
+  <div class="feat">
+    <div class="icon">💳</div>
+    <h3>Betal per lead</h3>
+    <p>Ingen abonnement tvang. Start gratis med 5 leads — tilkøb når du er klar til at skalere.</p>
+  </div>
+</div>
+{% endblock %}
