@@ -54,7 +54,8 @@ def get_new_companies(days_back=1):
     # cvrapi doesn't support date range natively, so we use a heuristic:
     # scan a window of high CVR numbers (new companies get high sequential numbers)
     db = sqlite3.connect(DB_PATH)
-    last_cvr = db.execute("SELECT MAX(CAST(cvr AS INTEGER)) FROM cvr_seen").fetchone()[0]
+    row = db.execute("SELECT last_cvr FROM cvr_seen WHERE id=1").fetchone()
+    last_cvr = row[0] if row else None
     db.close()
 
     if last_cvr is None:
