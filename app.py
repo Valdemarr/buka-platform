@@ -2,6 +2,17 @@
 BUKA Platform — CVR New Registration Alert Service
 """
 import os, sqlite3, secrets, re, hashlib, hmac, requests as _req
+
+# Load .env from script directory if present
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(_env_file):
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _v = _line.split('=', 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 from flask import Flask, render_template, request, redirect, url_for, g
 
 app = Flask(__name__)
