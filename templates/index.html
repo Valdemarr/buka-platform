@@ -104,9 +104,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
       <label>Dit navn (valgfrit)</label>
       <input type="text" name="name" placeholder="Mads Jensen">
     </div>
+    <div class="form-group">
+      <label>Geografisk område</label>
+      <select name="city">
+        <option value="Hele Danmark">Hele Danmark</option>
+        <option value="Storkøbenhavn">Storkøbenhavn</option>
+        <option value="Aarhus">Aarhus</option>
+        <option value="Odense">Odense</option>
+        <option value="Aalborg">Aalborg</option>
+        <option value="Sjælland">Sjælland (ekskl. Kbh)</option>
+        <option value="Jylland">Jylland (ekskl. Aarhus/Aalborg)</option>
+      </select>
+    </div>
     <button type="submit" class="btn">Start gratis — 30 dage</button>
   </form>
   <p class="trial">Derefter 499 kr/md · Opsig til enhver tid</p>
+  {% if subscriber_count and subscriber_count > 0 %}
+  <p style="text-align:center;font-size:0.8rem;color:#6b7280;margin-top:12px;">
+    {{ subscriber_count }} abonnenter holder allerede øje med nye kunder
+  </p>
+  {% endif %}
   {% endif %}
 </div>
 
