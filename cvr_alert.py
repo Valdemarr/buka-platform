@@ -216,13 +216,30 @@ def init_db():
     db.close()
 
 
+def _tg_ops(text):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat  = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat, "text": text},
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
 def main():
     init_db()
-    date_str  = (datetime.utcnow() - timedelta(days=1)).strftime("%d. %B %Y").lstrip("0")
+    date_str  = (datetime.utcnow() - timedelta(days=1)).strftime("%-d. %B %Y")
     companies = get_new_companies(days_back=1)
 
     if not companies:
-        print(f"No new companies found for {date_str}. Exiting.")
+        msg = f"BUKA: Ingen nye virksomheder fundet for {date_str}. Tjek CVR data-kilde."
+        print(msg)
+        _tg_ops(msg)
         return
 
     print(f"Found {len(companies)} new companies for {date_str}")
@@ -233,12 +250,12 @@ def main():
     db.close()
 
     for sub in subscribers:
-        # For now, all categories receive all companies
-        # Future: filter companies by city/industry preference
         send_alert(sub["email"], sub["name"] or "", companies, date_str)
         time.sleep(0.3)
 
-    print(f"Done. Sent to {len(subscribers)} subscribers.")
+    summary = f"BUKA: {len(companies)} nye virksomheder sendt til {len(subscribers)} abonnenter ({date_str})"
+    print(summary)
+    _tg_ops(summary)
 
 
 if __name__ == "__main__":
