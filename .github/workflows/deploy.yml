@@ -21,7 +21,7 @@ jobs:
       - name: Upload files
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "mkdir -p ~/buka/templates ~/public_html"
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py cvr_alert.py alert_email_template.html buka.dk@buka.dk:~/buka/
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py cvr_alert.py alert_email_template.html send_demo_alert.py buka.dk@buka.dk:~/buka/
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no templates/*.html buka.dk@buka.dk:~/buka/templates/
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no public_html/index.php public_html/.htaccess buka.dk@buka.dk:~/public_html/
 
