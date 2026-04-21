@@ -4,13 +4,19 @@ BUKA CVR Alert — daily job
 Fetches new Danish company registrations, emails each subscriber their filtered list.
 Run once per day (cron: 0 7 * * 1-5)
 """
-import os, sqlite3, requests, json, time
+import os, sqlite3, requests, json, time, hashlib, hmac
 from datetime import datetime, timedelta
 from html import escape
 
 RESEND_KEY   = os.environ["RESEND_API_KEY_EXTERNAL"]   # re_RrGhfEaE_...
 FROM_EMAIL   = "esben@buka.dk"
 DB_PATH      = os.path.join(os.path.dirname(__file__), "buka.db")
+BUKA_URL     = os.environ.get("BUKA_URL", "https://buka.dk")
+UNSUB_SECRET = os.environ.get("UNSUB_SECRET", "buka-unsub-2026")
+
+
+def make_unsub_token(email):
+    return hmac.new(UNSUB_SECRET.encode(), email.lower().encode(), hashlib.sha256).hexdigest()[:32]
 
 # Industry codes we care about mapping to subscriber categories
 # Keys match the 'category' field in the signups table
@@ -146,9 +152,9 @@ def send_alert(subscriber_email, subscriber_name, companies, date_str):
     if not companies:
         return
 
-    rows_html = "".join(company_row_html(c) for c in companies)
-    count     = len(companies)
-    greeting  = f"Hej {subscriber_name.split()[0]}," if subscriber_name else "Hej,"
+    rows_html  = "".join(company_row_html(c) for c in companies)
+    count      = len(companies)
+    unsub_link = f"{BUKA_URL}/unsubscribe?email={subscriber_email}&token={make_unsub_token(subscriber_email)}"
 
     with open(os.path.join(os.path.dirname(__file__), "alert_email_template.html")) as f:
         template = f.read()
@@ -156,7 +162,8 @@ def send_alert(subscriber_email, subscriber_name, companies, date_str):
     html = template \
         .replace("{{DATE}}", date_str) \
         .replace("{{COUNT}}", str(count)) \
-        .replace("{{COMPANY_ROWS}}", rows_html)
+        .replace("{{COMPANY_ROWS}}", rows_html) \
+        .replace("{{UNSUB_LINK}}", unsub_link)
 
     subject = f"BUKA: {count} nye virksomheder registreret {date_str}"
 
