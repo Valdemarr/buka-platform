@@ -2,12 +2,10 @@
 BUKA Platform — CVR New Registration Alert Service
 """
 import os, sqlite3, secrets, re
-from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, g
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
-
 DB_PATH = os.path.join(os.path.dirname(__file__), 'buka.db')
 
 def get_db():
@@ -23,15 +21,17 @@ def close_db(e=None):
 
 def init_db():
     db = sqlite3.connect(DB_PATH)
-    db.executescript('''
-    CREATE TABLE IF NOT EXISTS signups (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        email       TEXT UNIQUE NOT NULL,
-        name        TEXT,
-        category    TEXT NOT NULL,
-        created_at  TEXT DEFAULT (datetime('now'))
-    );
-    ''')
+    db.executescript(
+        "CREATE TABLE IF NOT EXISTS signups ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "email TEXT UNIQUE NOT NULL, "
+        "name TEXT, "
+        "category TEXT NOT NULL, "
+        "created_at TEXT DEFAULT (datetime('now')));"
+        "CREATE TABLE IF NOT EXISTS cvr_seen ("
+        "id INTEGER PRIMARY KEY, "
+        "last_cvr INTEGER NOT NULL);"
+    )
     db.commit()
     db.close()
 
@@ -44,30 +44,22 @@ def signup():
     email    = request.form.get('email', '').strip().lower()
     name     = request.form.get('name', '').strip()
     category = request.form.get('category', '').strip()
-
     if not email or not category:
         return redirect(url_for('index'))
-
-    # Basic email validation
-    if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+    if not re.match(r'^[^@]+@[^@]+\.[^@]+\$', email):
         return redirect(url_for('index'))
-
     db = get_db()
     try:
-        db.execute(
-            'INSERT INTO signups (email, name, category) VALUES (?,?,?)',
-            (email, name, category)
-        )
+        db.execute('INSERT INTO signups (email, name, category) VALUES (?,?,?)',
+                   (email, name, category))
         db.commit()
     except sqlite3.IntegrityError:
-        pass  # duplicate email — still show success
-
+        pass
     return render_template('index.html', success=True)
 
 @app.route('/admin/signups')
 def admin_signups():
-    secret = request.args.get('key', '')
-    if secret != os.environ.get('ADMIN_KEY', 'buka2026'):
+    if request.args.get('key', '') != os.environ.get('ADMIN_KEY', 'buka2026'):
         return 'Unauthorized', 401
     db = get_db()
     rows = db.execute('SELECT * FROM signups ORDER BY created_at DESC').fetchall()
