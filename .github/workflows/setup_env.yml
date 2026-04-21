@@ -1,0 +1,36 @@
+name: Write server .env
+
+on:
+  workflow_dispatch:
+    inputs:
+      resend_key:
+        description: 'RESEND_API_KEY_EXTERNAL value'
+        required: true
+      unsub_secret:
+        description: 'UNSUB_SECRET value'
+        required: false
+        default: 'buka-unsub-2026'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Write .env to server
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk bash -s << 'SCRIPT'
+            cat > ~/buka/.env << ENVEOF
+RESEND_API_KEY_EXTERNAL=${{ github.event.inputs.resend_key }}
+UNSUB_SECRET=${{ github.event.inputs.unsub_secret }}
+BUKA_URL=https://buka.dk
+ENVEOF
+            chmod 600 ~/buka/.env
+            echo "Wrote .env:"
+            wc -l ~/buka/.env
+          SCRIPT
