@@ -20,10 +20,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk bash -s << 'SCRIPT'
             export PATH="$HOME/.local/bin:$PATH"
-            export RESEND_API_KEY_EXTERNAL="${{ secrets.RESEND_API_KEY_EXTERNAL }}"
-            export UNSUB_SECRET="${{ secrets.UNSUB_SECRET }}"
-            export BUKA_URL="https://buka.dk"
             cd ~/buka
+            set -a && source .env && set +a
             python3 cvr_alert.py >> ~/buka/alert.log 2>&1
             echo "Exit: $?"
             tail -5 ~/buka/alert.log
