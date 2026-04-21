@@ -1,12 +1,13 @@
 """
 BUKA Platform — CVR New Registration Alert Service
 """
-import os, sqlite3, secrets, re
+import os, sqlite3, secrets, re, hashlib, hmac
 from flask import Flask, render_template, request, redirect, url_for, g
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
-DB_PATH = os.path.join(os.path.dirname(__file__), 'buka.db')
+DB_PATH      = os.path.join(os.path.dirname(__file__), 'buka.db')
+UNSUB_SECRET = os.environ.get('UNSUB_SECRET', 'buka-unsub-2026')
 
 def get_db():
     if 'db' not in g:
@@ -35,6 +36,9 @@ def init_db():
     db.commit()
     db.close()
 
+def make_unsub_token(email):
+    return hmac.new(UNSUB_SECRET.encode(), email.lower().encode(), hashlib.sha256).hexdigest()[:32]
+
 @app.route('/')
 def index():
     return render_template('index.html', success=False)
@@ -46,7 +50,7 @@ def signup():
     category = request.form.get('category', '').strip()
     if not email or not category:
         return redirect(url_for('index'))
-    if not re.match(r'^[^@]+@[^@]+\.[^@]+\$', email):
+    if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
         return redirect(url_for('index'))
     db = get_db()
     try:
@@ -56,6 +60,25 @@ def signup():
     except sqlite3.IntegrityError:
         pass
     return render_template('index.html', success=True)
+
+@app.route('/unsubscribe')
+def unsubscribe():
+    email = request.args.get('email', '').strip().lower()
+    token = request.args.get('token', '')
+    if not email or not token:
+        return 'Ugyldigt afmeldingslink.', 400
+    if not hmac.compare_digest(token, make_unsub_token(email)):
+        return 'Ugyldigt afmeldingslink.', 400
+    db = get_db()
+    db.execute('DELETE FROM signups WHERE email=?', (email,))
+    db.commit()
+    return '''<html><body style="font-family:-apple-system,sans-serif;max-width:560px;
+margin:80px auto;text-align:center;color:#374151;">
+<h2 style="color:#0d0d1a;">Du er afmeldt</h2>
+<p>Din email er fjernet fra BUKA. Du modtager ikke flere alarmer.</p>
+<p style="margin-top:32px;"><a href="https://buka.dk"
+style="color:#1a56ff;text-decoration:none;">Tilbage til buka.dk</a></p>
+</body></html>'''
 
 @app.route('/admin/signups')
 def admin_signups():
