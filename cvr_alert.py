@@ -8,6 +8,16 @@ import os, sqlite3, requests, json, time, hashlib, hmac
 from datetime import datetime, timedelta
 from html import escape
 
+# Load .env from script directory if present (server-side config)
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_file):
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 RESEND_KEY   = os.environ["RESEND_API_KEY_EXTERNAL"]   # re_RrGhfEaE_...
 FROM_EMAIL   = "esben@buka.dk"
 DB_PATH      = os.path.join(os.path.dirname(__file__), "buka.db")
