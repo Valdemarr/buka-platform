@@ -1,0 +1,21 @@
+name: Send demo alert
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run demo alert on server
+        run: >
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk
+          "cd ~/buka && set -a && source .env && set +a &&
+          python3 send_demo_alert.py 2>&1 | tee -a ~/buka/alert.log && echo Exit:$?"
