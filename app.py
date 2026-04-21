@@ -137,13 +137,48 @@ def admin_signups():
     if request.args.get('key', '') != os.environ.get('ADMIN_KEY', 'buka2026'):
         return 'Unauthorized', 401
     db = get_db()
-    rows = db.execute('SELECT * FROM signups ORDER BY created_at DESC').fetchall()
-    out = '<table border=1><tr><th>ID</th><th>Email</th><th>Name</th><th>Category</th><th>City</th><th>Signed up</th></tr>'
+    rows    = db.execute('SELECT * FROM signups ORDER BY created_at DESC').fetchall()
+    by_cat  = {}
+    by_city = {}
+    for r in rows:
+        cat  = r["category"]
+        city = r["city"] if "city" in r.keys() else "Hele Danmark"
+        by_cat[cat]   = by_cat.get(cat, 0) + 1
+        by_city[city] = by_city.get(city, 0) + 1
+
+    s = '''<html><head><meta charset="UTF-8">
+<style>
+body{font-family:-apple-system,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#111}
+h1{font-size:1.6rem;font-weight:900;margin-bottom:4px}
+.stats{display:flex;gap:20px;margin:24px 0;flex-wrap:wrap}
+.stat{background:#f0f4ff;border-radius:12px;padding:16px 24px;min-width:140px}
+.stat .n{font-size:2rem;font-weight:900;color:#1a56ff}
+.stat .l{font-size:.8rem;color:#6b7280;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.9rem}
+th{background:#f0f4ff;padding:10px 14px;text-align:left;font-weight:700;font-size:.8rem;text-transform:uppercase}
+td{padding:10px 14px;border-bottom:1px solid #e5e7eb}
+tr:hover td{background:#fafafa}
+.tag{background:#eef2ff;color:#1a56ff;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:600}
+</style></head><body>'''
+    s += f'<h1>BUKA Admin</h1><p style="color:#6b7280;font-size:.85rem">Total: {len(rows)} abonnenter</p>'
+    s += '<div class="stats">'
+    for cat, n in sorted(by_cat.items(), key=lambda x: -x[1]):
+        s += f'<div class="stat"><div class="n">{n}</div><div class="l">{cat}</div></div>'
+    s += '</div>'
+    if by_city:
+        s += '<p style="font-size:.8rem;color:#6b7280;margin-bottom:4px;font-weight:600">OMRÅDER</p>'
+        s += '<div class="stats">'
+        for city, n in sorted(by_city.items(), key=lambda x: -x[1]):
+            s += f'<div class="stat"><div class="n">{n}</div><div class="l">{city}</div></div>'
+        s += '</div>'
+    s += '<table><tr><th>#</th><th>Email</th><th>Navn</th><th>Kategori</th><th>Område</th><th>Tilmeldt</th></tr>'
     for r in rows:
         city = r["city"] if "city" in r.keys() else "—"
-        out += f'<tr><td>{r["id"]}</td><td>{r["email"]}</td><td>{r["name"]}</td><td>{r["category"]}</td><td>{city}</td><td>{r["created_at"]}</td></tr>'
-    out += '</table>'
-    return out
+        s += (f'<tr><td>{r["id"]}</td><td>{r["email"]}</td><td>{r["name"] or "—"}</td>'
+              f'<td><span class="tag">{r["category"]}</span></td><td>{city}</td>'
+              f'<td>{r["created_at"][:16]}</td></tr>')
+    s += '</table></body></html>'
+    return s
 
 if __name__ == '__main__':
     init_db()
