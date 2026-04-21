@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUKA Daglig CVR-alarm</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f4ff;padding:32px 16px;">
+<tr><td align="center">
+
+  <!-- Container -->
+  <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+    <!-- Header -->
+    <tr>
+      <td style="background:#1a56ff;border-radius:12px 12px 0 0;padding:24px 32px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td>
+              <span style="font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-0.5px;">BUKA</span>
+            </td>
+            <td align="right">
+              <span style="font-size:0.8rem;color:rgba(255,255,255,0.75);">{{DATE}} &mdash; {{COUNT}} nye virksomheder</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Intro -->
+    <tr>
+      <td style="background:#fff;padding:28px 32px 16px;">
+        <p style="margin:0 0 4px;font-size:0.8rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Daglig alarm</p>
+        <h1 style="margin:0 0 12px;font-size:1.4rem;font-weight:900;color:#0d0d1a;line-height:1.2;">
+          {{COUNT}} nye virksomheder registreret i går
+        </h1>
+        <p style="margin:0;font-size:0.9rem;color:#6b7280;line-height:1.6;">
+          Herunder finder du gårsdagens nye CVR-registreringer. Ring dem op i dag — de har endnu ikke valgt leverandør.
+        </p>
+      </td>
+    </tr>
+
+    <!-- Divider -->
+    <tr>
+      <td style="background:#fff;padding:0 32px;">
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:0;">
+      </td>
+    </tr>
+
+    <!-- Company rows — repeated for each company -->
+    {{COMPANY_ROWS}}
+
+    <!-- Footer CTA -->
+    <tr>
+      <td style="background:#fff;padding:24px 32px 32px;border-radius:0 0 12px 12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="background:#f0f4ff;border-radius:10px;padding:20px 24px;">
+              <p style="margin:0 0 12px;font-size:0.85rem;color:#374151;line-height:1.5;">
+                <strong>Tip:</strong> Ring tidligt på dagen. Nye ejere er som regel i gang med at sætte tingene op — og svarer ofte selv.
+              </p>
+              <p style="margin:0;font-size:0.75rem;color:#9ca3af;">
+                Du modtager denne email fordi du er tilmeldt BUKA.
+                <a href="https://buka.dk" style="color:#1a56ff;text-decoration:none;">Administrer abonnement</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="padding:16px 32px;text-align:center;">
+        <p style="margin:0;font-size:0.75rem;color:#9ca3af;">
+          BUKA &mdash; <a href="https://buka.dk" style="color:#9ca3af;">buka.dk</a> &mdash;
+          <a href="mailto:esben@buka.dk" style="color:#9ca3af;">esben@buka.dk</a>
+        </p>
+      </td>
+    </tr>
+
+  </table>
+
+</td></tr>
+</table>
+
+</body>
+</html>
