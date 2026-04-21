@@ -54,39 +54,64 @@ def init_db():
         "email TEXT UNIQUE NOT NULL, "
         "name TEXT, "
         "category TEXT NOT NULL, "
+        "city TEXT DEFAULT 'Hele Danmark', "
         "created_at TEXT DEFAULT (datetime('now')));"
         "CREATE TABLE IF NOT EXISTS cvr_seen ("
         "id INTEGER PRIMARY KEY, "
         "last_cvr INTEGER NOT NULL);"
     )
+    # Migrate existing DB: add city column if missing
+    try:
+        db.execute("ALTER TABLE signups ADD COLUMN city TEXT DEFAULT 'Hele Danmark'")
+        db.commit()
+    except Exception:
+        pass
     db.commit()
     db.close()
 
 def make_unsub_token(email):
     return hmac.new(UNSUB_SECRET.encode(), email.lower().encode(), hashlib.sha256).hexdigest()[:32]
 
+def get_subscriber_count():
+    try:
+        db = sqlite3.connect(DB_PATH)
+        count = db.execute('SELECT COUNT(*) FROM signups').fetchone()[0]
+        db.close()
+        return count
+    except Exception:
+        return 0
+
 @app.route('/')
 def index():
-    return render_template('index.html', success=False)
+    count = get_subscriber_count()
+    return render_template('index.html', success=False, subscriber_count=count)
 
 @app.route('/signup', methods=['POST'])
 def signup():
     email    = request.form.get('email', '').strip().lower()
     name     = request.form.get('name', '').strip()
     category = request.form.get('category', '').strip()
+    city     = request.form.get('city', 'Hele Danmark').strip()
     if not email or not category:
         return redirect(url_for('index'))
     if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
         return redirect(url_for('index'))
     db = get_db()
     try:
-        db.execute('INSERT INTO signups (email, name, category) VALUES (?,?,?)',
-                   (email, name, category))
+        db.execute('INSERT INTO signups (email, name, category, city) VALUES (?,?,?,?)',
+                   (email, name, category, city))
         db.commit()
-        _tg_notify(f"Ny BUKA tilmelding!\nNavn: {name or '(ikke angivet)'}\nEmail: {email}\nKategori: {category}")
+        _tg_notify(
+            f"Ny BUKA tilmelding!\n"
+            f"Navn: {name or '(ikke angivet)'}\n"
+            f"Email: {email}\n"
+            f"Kategori: {category}\n"
+            f"Område: {city}"
+        )
     except sqlite3.IntegrityError:
         pass
-    return render_template('index.html', success=True)
+    count = get_subscriber_count()
+    return render_template('index.html', success=True, subscriber_count=count)
 
 @app.route('/unsubscribe')
 def unsubscribe():
@@ -113,9 +138,10 @@ def admin_signups():
         return 'Unauthorized', 401
     db = get_db()
     rows = db.execute('SELECT * FROM signups ORDER BY created_at DESC').fetchall()
-    out = '<table border=1><tr><th>ID</th><th>Email</th><th>Name</th><th>Category</th><th>Signed up</th></tr>'
+    out = '<table border=1><tr><th>ID</th><th>Email</th><th>Name</th><th>Category</th><th>City</th><th>Signed up</th></tr>'
     for r in rows:
-        out += f'<tr><td>{r["id"]}</td><td>{r["email"]}</td><td>{r["name"]}</td><td>{r["category"]}</td><td>{r["created_at"]}</td></tr>'
+        city = r["city"] if "city" in r.keys() else "—"
+        out += f'<tr><td>{r["id"]}</td><td>{r["email"]}</td><td>{r["name"]}</td><td>{r["category"]}</td><td>{city}</td><td>{r["created_at"]}</td></tr>'
     out += '</table>'
     return out
 
