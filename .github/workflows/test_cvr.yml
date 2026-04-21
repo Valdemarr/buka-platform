@@ -1,0 +1,47 @@
+name: Test CVR sources
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan buka.dk >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run CVR source tests on server
+        run: |
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no /dev/stdin buka.dk@buka.dk:/tmp/test_cvr.sh << 'SCRIPT'
+#!/bin/bash
+echo "=== Testing CVR data sources from server ==="
+
+echo -n "distribution.virk.dk (no auth): "
+curl -s -m 5 "https://distribution.virk.dk/cvr-permanent/virksomhed/_search?size=1" -o /tmp/virk_test.out 2>&1
+echo "HTTP $? / $(head -c 100 /tmp/virk_test.out)"
+
+echo -n "distribution.virk.dk (cvr:cvr): "
+curl -s -m 5 -u "cvr:cvr" "https://distribution.virk.dk/cvr-permanent/virksomhed/_search?size=1" | head -c 200
+
+echo -n "cvrapi.dk (latest known): "
+curl -s -m 5 "https://cvrapi.dk/api?vat=44500000&country=dk" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('startdate','NO DATE'))" 2>/dev/null || echo "failed"
+
+echo ""
+echo "=== Testing newer CVR ranges ==="
+for cvr in 44550000 44600000 44650000 44700000 44750000; do
+  result=$(curl -s -m 5 "https://cvrapi.dk/api?vat=$cvr&country=dk" 2>/dev/null)
+  if echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if 'error' not in d else 1)" 2>/dev/null; then
+    date=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('startdate','?'))" 2>/dev/null)
+    echo "CVR $cvr: EXISTS - $date"
+  else
+    echo "CVR $cvr: not found"
+  fi
+  sleep 0.5
+done
+
+SCRIPT
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "bash /tmp/test_cvr.sh"
