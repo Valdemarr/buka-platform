@@ -1,69 +1,132 @@
 {% extends "base.html" %}
-{% block title %}BUKA — Kvalificerede leads til danske bureauer{% endblock %}
+{% block title %}BUKA — Vær den første til at kontakte nye danske virksomheder{% endblock %}
 {% block head %}
 <style>
-.hero{text-align:center;padding:80px 24px 60px;max-width:680px;margin:0 auto}
-.hero h1{font-size:clamp(2.2rem,5vw,3.2rem);font-weight:900;line-height:1.1;letter-spacing:-.5px;margin-bottom:1.2rem}
+:root{--blue:#1a56ff;--dark:#0d0d1a;--gray:#6b7280;--light:#f8f9ff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--light);color:var(--dark)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;background:#fff;border-bottom:1px solid #e5e7eb}
+.nav .logo{font-weight:900;font-size:1.4rem;letter-spacing:-.5px;color:var(--dark)}
+.nav .logo span{color:var(--blue)}
+.hero{text-align:center;padding:80px 24px 60px;max-width:720px;margin:0 auto}
+.hero .badge{display:inline-block;background:#eef2ff;color:var(--blue);font-size:.8rem;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:20px;letter-spacing:.3px;text-transform:uppercase}
+.hero h1{font-size:clamp(2rem,5vw,3.4rem);font-weight:900;line-height:1.1;letter-spacing:-.5px;margin-bottom:1.2rem}
 .hero h1 em{color:var(--blue);font-style:normal}
-.hero p{font-size:1.1rem;color:var(--gray);line-height:1.65;margin-bottom:2.5rem}
-.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.hero-btns .btn{padding:.85rem 2rem;font-size:1rem}
-.stats{display:flex;gap:40px;justify-content:center;flex-wrap:wrap;padding:2rem;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:0 auto 60px;max-width:600px}
-.stat{text-align:center}
-.stat .n{font-size:2rem;font-weight:900;color:var(--blue);line-height:1}
-.stat .l{font-size:.8rem;color:var(--gray);margin-top:4px}
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:60px}
-.feat{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
-.feat .icon{font-size:1.8rem;margin-bottom:10px}
-.feat h3{font-weight:800;margin-bottom:6px}
-.feat p{font-size:.88rem;color:var(--gray);line-height:1.6}
+.hero p{font-size:1.1rem;color:var(--gray);line-height:1.7;margin-bottom:2.5rem;max-width:560px;margin-left:auto;margin-right:auto}
+.signup-box{background:#fff;border-radius:20px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,.08);max-width:480px;margin:0 auto 60px;text-align:left}
+.signup-box h2{font-size:1.3rem;font-weight:800;margin-bottom:6px}
+.signup-box .sub{font-size:.88rem;color:var(--gray);margin-bottom:24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.82rem;font-weight:700;margin-bottom:6px;color:#374151}
+.form-group input,.form-group select{width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:.95rem;outline:none;transition:border .15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue)}
+.btn{display:inline-block;background:var(--blue);color:#fff;font-weight:800;padding:12px 28px;border-radius:12px;border:none;cursor:pointer;font-size:1rem;width:100%;text-align:center;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.trial{font-size:.8rem;color:var(--gray);text-align:center;margin-top:12px}
+.how{padding:60px 24px;max-width:800px;margin:0 auto}
+.how h2{font-size:1.8rem;font-weight:900;text-align:center;margin-bottom:40px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px}
+.step{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.step .num{width:36px;height:36px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.95rem;margin-bottom:16px}
+.step h3{font-weight:800;margin-bottom:8px;font-size:1rem}
+.step p{font-size:.85rem;color:var(--gray);line-height:1.6}
+.pricing{background:#fff;padding:60px 24px;text-align:center}
+.pricing h2{font-size:1.8rem;font-weight:900;margin-bottom:12px}
+.pricing .desc{color:var(--gray);margin-bottom:40px;font-size:1rem}
+.price-card{display:inline-block;background:var(--light);border:2px solid var(--blue);border-radius:20px;padding:40px;max-width:360px;text-align:left}
+.price-card .amount{font-size:3rem;font-weight:900;color:var(--blue);line-height:1}
+.price-card .amount span{font-size:1.1rem;color:var(--gray);font-weight:400}
+.price-card ul{list-style:none;margin:20px 0 28px}
+.price-card ul li{padding:6px 0;font-size:.9rem;color:#374151}
+.price-card ul li::before{content:"✓ ";color:var(--blue);font-weight:700}
+.footer{padding:30px 24px;text-align:center;font-size:.82rem;color:var(--gray);border-top:1px solid #e5e7eb}
 </style>
 {% endblock %}
 {% block content %}
+<nav class="nav">
+  <div class="logo">BU<span>KA</span></div>
+  <a href="#signup" style="font-size:.9rem;font-weight:700;color:var(--blue);text-decoration:none">Start gratis →</a>
+</nav>
+
 <div class="hero">
-  <h1>Danmarks leads<br><em>på én platform</em></h1>
-  <p>BUKA samler og kvalificerer data fra det danske CVR-register og virksomheders hjemmesider — så du kan finde præcis de kunder, du vil have.</p>
-  <div class="hero-btns">
-    <a href="/register" class="btn">Start gratis — 5 leads inkluderet</a>
-    <a href="/login" class="btn btn-outline">Log ind</a>
+  <div class="badge">Ny service — Danmark</div>
+  <h1>Vær <em>den første</em> til at<br>kontakte nye virksomheder</h1>
+  <p>Hver dag registreres hundredvis af nye virksomheder i det danske CVR-register. BUKA sender dig en alarm samme dag — så du når dem før dine konkurrenter.</p>
+</div>
+
+<div class="signup-box" id="signup">
+  <h2>Start din gratis periode</h2>
+  <p class="sub">30 dages gratis adgang. Ingen kreditkort krævet.</p>
+  {% if success %}
+  <div style="background:#d1fae5;color:#065f46;padding:16px;border-radius:10px;font-weight:600;text-align:center">Du er tilmeldt! Vi sender dig en bekræftelse. ✓</div>
+  {% else %}
+  <form method="POST" action="/signup">
+    <div class="form-group">
+      <label>Din email</label>
+      <input type="email" name="email" placeholder="dig@firma.dk" required>
+    </div>
+    <div class="form-group">
+      <label>Hvad laver du?</label>
+      <select name="category" required>
+        <option value="" disabled selected>Vælg kategori</option>
+        <option value="revisor">Revisor / bogføring</option>
+        <option value="webbureau">Webbureau / digitalt bureau</option>
+        <option value="forsikring">Forsikringsmægler</option>
+        <option value="bank">Bank / finans</option>
+        <option value="it">IT / software</option>
+        <option value="reklame">Reklame / marketing</option>
+        <option value="telefoni">Telefoni / kommunikation</option>
+        <option value="andet">Andet</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Dit navn (valgfrit)</label>
+      <input type="text" name="name" placeholder="Mads Jensen">
+    </div>
+    <button type="submit" class="btn">Start gratis — 30 dage</button>
+  </form>
+  <p class="trial">Derefter 499 kr/md · Opsig til enhver tid</p>
+  {% endif %}
+</div>
+
+<div class="how">
+  <h2>Sådan virker det</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <h3>CVR overvåges dagligt</h3>
+      <p>Vi scanner det danske CVR-register for nye virksomheder registreret den seneste dag.</p>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <h3>Du får en daglig alarm</h3>
+      <p>Hver morgen sender vi dig en email med dagens nye virksomheder, filtreret til din branche og region.</p>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <h3>Kontakt dem som den første</h3>
+      <p>Nyt CVR-nummer = ny virksomhed der mangler revisor, bank, hjemmeside og forsikring. Du er der fra dag ét.</p>
+    </div>
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat">
-    <div class="n">{{ "{:,}".format(stats.companies) }}</div>
-    <div class="l">Virksomheder i databasen</div>
-  </div>
-  <div class="stat">
-    <div class="n">{{ "{:,}".format(stats.with_email) }}</div>
-    <div class="l">Med verificeret email</div>
-  </div>
-  <div class="stat">
-    <div class="n">{{ stats.industries }}</div>
-    <div class="l">Brancher</div>
+<div class="pricing">
+  <h2>Pris</h2>
+  <p class="desc">Simpel, flad pris. Ingen setup-fee, ingen binding.</p>
+  <div class="price-card">
+    <div class="amount">499 <span>kr/md</span></div>
+    <ul>
+      <li>Daglig email med nye CVR-registreringer</li>
+      <li>Filtrering på by og branche</li>
+      <li>Kontaktoplysninger inkluderet</li>
+      <li>30 dages gratis prøveperiode</li>
+      <li>Opsig til enhver tid</li>
+    </ul>
+    <a href="#signup" class="btn" style="display:block;text-decoration:none">Start gratis nu</a>
   </div>
 </div>
 
-<div class="features">
-  <div class="feat">
-    <div class="icon">🏢</div>
-    <h3>Eget datagrundlag</h3>
-    <p>Vi crawl'er CVR og virksomhedernes egne hjemmesider — ingen tredjepartsdata, ingen delt database med konkurrenterne.</p>
-  </div>
-  <div class="feat">
-    <div class="icon">🎯</div>
-    <h3>Filtrer præcist</h3>
-    <p>Branche, by, størrelse, med email — find de specifikke virksomheder der matcher dit bureau.</p>
-  </div>
-  <div class="feat">
-    <div class="icon">🔒</div>
-    <h3>30 dages eksklusivitet</h3>
-    <p>Når du claimer et lead, er det dit i 30 dage. Ingen andre bureauer kan tage det fra dig i den periode.</p>
-  </div>
-  <div class="feat">
-    <div class="icon">💳</div>
-    <h3>Betal per lead</h3>
-    <p>Ingen abonnement tvang. Start gratis med 5 leads — tilkøb når du er klar til at skalere.</p>
-  </div>
+<div class="footer">
+  &copy; 2026 BUKA &mdash; <a href="mailto:esben@buka.dk" style="color:var(--gray)">esben@buka.dk</a>
 </div>
 {% endblock %}
