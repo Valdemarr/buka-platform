@@ -1,13 +1,28 @@
 """
 BUKA Platform — CVR New Registration Alert Service
 """
-import os, sqlite3, secrets, re, hashlib, hmac
+import os, sqlite3, secrets, re, hashlib, hmac, requests as _req
 from flask import Flask, render_template, request, redirect, url_for, g
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
-DB_PATH      = os.path.join(os.path.dirname(__file__), 'buka.db')
-UNSUB_SECRET = os.environ.get('UNSUB_SECRET', 'buka-unsub-2026')
+DB_PATH        = os.path.join(os.path.dirname(__file__), 'buka.db')
+UNSUB_SECRET   = os.environ.get('UNSUB_SECRET', 'buka-unsub-2026')
+TG_TOKEN       = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TG_CHAT        = os.environ.get('TELEGRAM_CHAT_ID', '')
+
+
+def _tg_notify(text):
+    if not TG_TOKEN or not TG_CHAT:
+        return
+    try:
+        _req.post(
+            f'https://api.telegram.org/bot{TG_TOKEN}/sendMessage',
+            json={'chat_id': TG_CHAT, 'text': text},
+            timeout=4
+        )
+    except Exception:
+        pass
 
 def get_db():
     if 'db' not in g:
@@ -57,6 +72,7 @@ def signup():
         db.execute('INSERT INTO signups (email, name, category) VALUES (?,?,?)',
                    (email, name, category))
         db.commit()
+        _tg_notify(f"Ny BUKA tilmelding!\nNavn: {name or '(ikke angivet)'}\nEmail: {email}\nKategori: {category}")
     except sqlite3.IntegrityError:
         pass
     return render_template('index.html', success=True)
