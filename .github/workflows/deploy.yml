@@ -35,8 +35,6 @@ jobs:
             pkill -f "gunicorn.*app" 2>/dev/null || true
             sleep 1
             SECRET_KEY="buka-$(date +%s)" \
-            UNSUB_SECRET="${{ secrets.UNSUB_SECRET }}" \
-            RESEND_API_KEY_EXTERNAL="${{ secrets.RESEND_API_KEY_EXTERNAL }}" \
             nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
               --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app
             sleep 3
