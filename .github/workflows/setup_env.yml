@@ -10,6 +10,14 @@ on:
         description: UNSUB_SECRET value
         required: false
         default: buka-unsub-2026
+      telegram_token:
+        description: TELEGRAM_BOT_TOKEN value
+        required: false
+        default: ''
+      telegram_chat:
+        description: TELEGRAM_CHAT_ID value
+        required: false
+        default: ''
 
 jobs:
   setup:
@@ -26,9 +34,11 @@ jobs:
         env:
           RESEND_KEY: ${{ github.event.inputs.resend_key }}
           UNSUB_SEC: ${{ github.event.inputs.unsub_secret }}
+          TG_TOKEN: ${{ github.event.inputs.telegram_token }}
+          TG_CHAT: ${{ github.event.inputs.telegram_chat }}
         run: |
-          printf 'RESEND_API_KEY_EXTERNAL=%s\nUNSUB_SECRET=%s\nBUKA_URL=https://buka.dk\n' \
-            "${RESEND_KEY}" "${UNSUB_SEC}" > /tmp/buka.env
+          printf 'RESEND_API_KEY_EXTERNAL=%s\nUNSUB_SECRET=%s\nBUKA_URL=https://buka.dk\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\n' \
+            "${RESEND_KEY}" "${UNSUB_SEC}" "${TG_TOKEN}" "${TG_CHAT}" > /tmp/buka.env
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no /tmp/buka.env buka.dk@buka.dk:~/buka/.env
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk \
             "chmod 600 ~/buka/.env && echo '.env written:' && wc -l ~/buka/.env"
