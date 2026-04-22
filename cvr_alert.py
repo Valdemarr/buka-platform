@@ -41,6 +41,33 @@ CATEGORY_FILTERS = {
     "andet":       None,
 }
 
+# Zip code ranges per city/region selection (Danish postal codes)
+CITY_ZIP_RANGES = {
+    "Storkøbenhavn": [(1000, 2999)],
+    "Sjælland":      [(3000, 4999)],
+    "Odense":        [(5000, 5999)],
+    "Jylland":       [(6000, 7999)],
+    "Aarhus":        [(8000, 8999)],
+    "Aalborg":       [(9000, 9999)],
+}
+
+def filter_companies_by_city(companies, city):
+    """Return companies matching subscriber's city/region. 'Hele Danmark' = all."""
+    if not city or city == "Hele Danmark":
+        return companies
+    ranges = CITY_ZIP_RANGES.get(city)
+    if not ranges:
+        return companies
+    result = []
+    for c in companies:
+        try:
+            zipcode = int(str(c.get("zipcode", "") or "").strip())
+            if any(lo <= zipcode <= hi for lo, hi in ranges):
+                result.append(c)
+        except (ValueError, TypeError):
+            pass
+    return result
+
 def get_new_companies(days_back=1):
     """
     Fetch companies registered in the last N days via cvrapi.dk sequential CVR scan.
@@ -249,11 +276,18 @@ def main():
     subscribers = db.execute("SELECT * FROM signups").fetchall()
     db.close()
 
+    sent = 0
     for sub in subscribers:
-        send_alert(sub["email"], sub["name"] or "", companies, date_str)
+        city = sub["city"] if "city" in sub.keys() else "Hele Danmark"
+        filtered = filter_companies_by_city(companies, city)
+        if filtered:
+            send_alert(sub["email"], sub["name"] or "", filtered, date_str)
+            sent += 1
+        else:
+            print(f"No companies in region '{city}' for {sub['email']} — skipping")
         time.sleep(0.3)
 
-    summary = f"BUKA: {len(companies)} nye virksomheder sendt til {len(subscribers)} abonnenter ({date_str})"
+    summary = f"BUKA: {len(companies)} nye virksomheder sendt til {sent}/{len(subscribers)} abonnenter ({date_str})"
     print(summary)
     _tg_ops(summary)
 
