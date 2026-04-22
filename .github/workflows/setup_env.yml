@@ -18,6 +18,10 @@ on:
         description: TELEGRAM_CHAT_ID value
         required: false
         default: ''
+      cvrdev_key:
+        description: CVRDEV_API_KEY value (cvr.dev API key)
+        required: false
+        default: ''
 
 jobs:
   setup:
@@ -36,9 +40,10 @@ jobs:
           UNSUB_SEC: ${{ github.event.inputs.unsub_secret }}
           TG_TOKEN: ${{ github.event.inputs.telegram_token }}
           TG_CHAT: ${{ github.event.inputs.telegram_chat }}
+          CVRDEV_KEY: ${{ github.event.inputs.cvrdev_key }}
         run: |
-          printf 'RESEND_API_KEY_EXTERNAL=%s\nUNSUB_SECRET=%s\nBUKA_URL=https://buka.dk\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\n' \
-            "${RESEND_KEY}" "${UNSUB_SEC}" "${TG_TOKEN}" "${TG_CHAT}" > /tmp/buka.env
+          printf 'RESEND_API_KEY_EXTERNAL=%s\nUNSUB_SECRET=%s\nBUKA_URL=https://buka.dk\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\nCVRDEV_API_KEY=%s\n' \
+            "${RESEND_KEY}" "${UNSUB_SEC}" "${TG_TOKEN}" "${TG_CHAT}" "${CVRDEV_KEY}" > /tmp/buka.env
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no /tmp/buka.env buka.dk@buka.dk:~/buka/.env
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk \
             "chmod 600 ~/buka/.env && echo '.env written:' && wc -l ~/buka/.env"
