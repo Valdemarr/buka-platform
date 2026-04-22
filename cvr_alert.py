@@ -197,9 +197,11 @@ def send_alert(subscriber_email, subscriber_name, companies, date_str):
     with open(os.path.join(os.path.dirname(__file__), "alert_email_template.html")) as f:
         template = f.read()
 
+    greeting = f", {subscriber_name.split()[0]}" if subscriber_name and subscriber_name.strip() else ""
     html = template \
         .replace("{{DATE}}", date_str) \
         .replace("{{COUNT}}", str(count)) \
+        .replace("{{GREETING}}", greeting) \
         .replace("{{COMPANY_ROWS}}", rows_html) \
         .replace("{{UNSUB_LINK}}", unsub_link)
 
