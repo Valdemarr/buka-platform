@@ -1,7 +1,7 @@
 """
 BUKA Platform — CVR New Registration Alert Service
 """
-import os, sqlite3, secrets, re, hashlib, hmac, requests as _req
+import os, sqlite3, secrets, re, hashlib, hmac, requests as _req, json as _json
 
 # Load .env from script directory if present
 _env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -21,6 +21,8 @@ DB_PATH        = os.path.join(os.path.dirname(__file__), 'buka.db')
 UNSUB_SECRET   = os.environ.get('UNSUB_SECRET', 'buka-unsub-2026')
 TG_TOKEN       = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TG_CHAT        = os.environ.get('TELEGRAM_CHAT_ID', '')
+RESEND_KEY     = os.environ.get('RESEND_API_KEY_EXTERNAL', '')
+FROM_EMAIL     = 'esben@buka.dk'
 
 
 def _tg_notify(text):
@@ -34,6 +36,84 @@ def _tg_notify(text):
         )
     except Exception:
         pass
+
+CATEGORY_LABELS = {
+    'revisor':    'revisor / bogføring',
+    'webbureau':  'webbureau / digitalt bureau',
+    'forsikring': 'forsikring',
+    'bank':       'bank / finans',
+    'it':         'IT / software',
+    'reklame':    'reklame / marketing',
+    'telefoni':   'telefoni',
+    'andet':      'B2B-service',
+}
+
+def _send_welcome(email, name, category, city):
+    if not RESEND_KEY:
+        return
+    cat_label = CATEGORY_LABELS.get(category, category)
+    first_name = name.split()[0] if name and name.strip() else 'hej'
+    unsub_token = hmac.new(UNSUB_SECRET.encode(), email.lower().encode(), hashlib.sha256).hexdigest()[:32]
+    unsub_url = f'https://buka.dk/unsubscribe?email={email}&token={unsub_token}'
+    area = city if city and city != 'Hele Danmark' else 'hele Danmark'
+
+    html = f"""<!DOCTYPE html>
+<html lang="da"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f0f4ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f4ff;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+  <tr>
+    <td style="background:#1a56ff;border-radius:12px 12px 0 0;padding:24px 32px;">
+      <span style="font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-0.5px;">BUKA</span>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#fff;padding:32px 32px 24px;">
+      <h1 style="margin:0 0 16px;font-size:1.4rem;font-weight:900;color:#0d0d1a;">Velkommen, {first_name}!</h1>
+      <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">
+        Du er nu tilmeldt BUKA. Hver hverdag kl. 7:00 sender vi dig en oversigt over
+        nye virksomheder registreret i CVR — filtreret til <strong>{cat_label}</strong> i <strong>{area}</strong>.
+      </p>
+      <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">
+        Disse virksomheder er bogstavelig talt registreret dagen før. De har endnu ikke
+        valgt leverandør — du har et vindue på 24–72 timer til at være den første.
+      </p>
+      <div style="background:#f0f4ff;border-radius:10px;padding:20px 24px;margin:24px 0;">
+        <p style="margin:0;font-size:0.9rem;color:#374151;line-height:1.6;">
+          <strong>Tip:</strong> Ring helst inden kl. 11. Nye ejere svarer som regel selv.
+          Præsenter dig kort — de er i gang med at sætte alt op og er åbne for gode tilbud.
+        </p>
+      </div>
+      <p style="margin:0;font-size:0.85rem;color:#6b7280;">
+        Din første alarm lander næste hverdag kl. 7:00.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#fff;padding:0 32px 24px;border-radius:0 0 12px 12px;">
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 16px;">
+      <p style="margin:0;font-size:0.75rem;color:#9ca3af;">
+        BUKA — <a href="https://buka.dk" style="color:#9ca3af;">buka.dk</a> —
+        <a href="{unsub_url}" style="color:#9ca3af;">Afmeld</a>
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr></table>
+</body></html>"""
+
+    try:
+        _req.post(
+            'https://api.resend.com/emails',
+            headers={'Authorization': f'Bearer {RESEND_KEY}', 'Content-Type': 'application/json'},
+            json={'from': FROM_EMAIL, 'to': [email],
+                  'subject': 'Velkommen til BUKA — din første alarm ankommer snart', 'html': html},
+            timeout=8,
+        )
+    except Exception:
+        pass
+
 
 def get_db():
     if 'db' not in g:
@@ -97,10 +177,12 @@ def signup():
     if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
         return redirect(url_for('index'))
     db = get_db()
+    is_new = False
     try:
         db.execute('INSERT INTO signups (email, name, category, city) VALUES (?,?,?,?)',
                    (email, name, category, city))
         db.commit()
+        is_new = True
         _tg_notify(
             f"Ny BUKA tilmelding!\n"
             f"Navn: {name or '(ikke angivet)'}\n"
@@ -110,6 +192,8 @@ def signup():
         )
     except sqlite3.IntegrityError:
         pass
+    if is_new:
+        _send_welcome(email, name, category, city)
     count = get_subscriber_count()
     return render_template('index.html', success=True, subscriber_count=count)
 
