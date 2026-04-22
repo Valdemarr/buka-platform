@@ -23,6 +23,7 @@ FROM_EMAIL   = "esben@buka.dk"
 DB_PATH      = os.path.join(os.path.dirname(__file__), "buka.db")
 BUKA_URL     = os.environ.get("BUKA_URL", "https://buka.dk")
 UNSUB_SECRET = os.environ.get("UNSUB_SECRET", "buka-unsub-2026")
+CVRDEV_KEY   = os.environ.get("CVRDEV_API_KEY", "")   # set in .env when available
 
 
 def make_unsub_token(email):
@@ -67,6 +68,71 @@ def filter_companies_by_city(companies, city):
         except (ValueError, TypeError):
             pass
     return result
+
+def get_new_companies_cvrdev(days_back=1):
+    """
+    Fetch new companies via cvr.dev API (stiftelsesdato filter).
+    Requires CVRDEV_API_KEY in environment.
+    Returns companies in same format as get_new_companies().
+    Only returns reklamebeskyttet=false companies (legal requirement).
+    """
+    date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    date_to   = (datetime.utcnow() - timedelta(days=days_back - 1)).strftime("%Y-%m-%d")
+    companies  = []
+    pagination_token = None
+
+    while True:
+        params = {
+            "stiftelsesdato_min": date_from,
+            "stiftelsesdato_max": date_to,
+            "reklamebeskyttet":   "false",
+            "kontaktoplysninger": "true",
+            "limit":              100,
+        }
+        if pagination_token:
+            params["pagination_token"] = pagination_token
+
+        try:
+            r = requests.get(
+                "https://api.cvr.dev/api/cvrdev/virksomhed/search",
+                headers={"Authorization": f"Bearer {CVRDEV_KEY}"},
+                params=params,
+                timeout=15,
+            )
+            if r.status_code == 401:
+                print("WARN: cvr.dev API key invalid or plan does not include Segmentering")
+                return None
+            if r.status_code != 200:
+                print(f"WARN: cvr.dev API error {r.status_code}: {r.text[:200]}")
+                return None
+
+            data = r.json()
+            for v in data.get("virksomheder", []):
+                addr    = v.get("beliggenhedsadresse", {}) or {}
+                contact = v.get("kontaktoplysninger", {}) or {}
+                companies.append({
+                    "cvr":      str(v.get("cvr_nummer", "")),
+                    "name":     v.get("navn", ""),
+                    "address":  addr.get("vejnavn", ""),
+                    "zipcode":  str(addr.get("postnummer", "")),
+                    "city":     addr.get("bynavn", ""),
+                    "phone":    contact.get("telefon", ""),
+                    "email":    contact.get("email", ""),
+                    "industry": v.get("branche", ""),
+                    "type":     v.get("virksomhedsform", ""),
+                    "founded":  v.get("stiftelsesdato", ""),
+                })
+
+            pagination_token = data.get("pagination_token")
+            if not pagination_token or not data.get("virksomheder"):
+                break
+
+        except Exception as e:
+            print(f"WARN: cvr.dev fetch error: {e}")
+            return None
+
+    return companies
+
 
 def get_new_companies(days_back=1):
     """
@@ -262,8 +328,16 @@ def _tg_ops(text):
 
 def main():
     init_db()
-    date_str  = (datetime.utcnow() - timedelta(days=1)).strftime("%-d. %B %Y")
-    companies = get_new_companies(days_back=1)
+    date_str = (datetime.utcnow() - timedelta(days=1)).strftime("%-d. %B %Y")
+
+    # Use cvr.dev if API key is set, otherwise fall back to cvrapi.dk scanner
+    if CVRDEV_KEY:
+        companies = get_new_companies_cvrdev(days_back=1)
+        if companies is None:
+            print("WARN: cvr.dev failed, falling back to cvrapi.dk scanner")
+            companies = get_new_companies(days_back=1)
+    else:
+        companies = get_new_companies(days_back=1)
 
     if not companies:
         msg = f"BUKA: Ingen nye virksomheder fundet for {date_str}. Tjek CVR data-kilde."
