@@ -26,19 +26,24 @@ jobs:
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no public_html/index.php public_html/.htaccess buka.dk@buka.dk:~/public_html/
 
       - name: Start app
-        run: >
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk
-          "export PATH=$HOME/.local/bin:$PATH &&
-          cd ~/buka &&
-          python3 -m pip install flask gunicorn requests --user --quiet 2>&1 | tail -2 &&
-          chmod +x ~/buka/watchdog.sh &&
-          python3 -c 'from app import init_db; init_db(); print(\"DB OK\")' &&
-          pkill -f 'gunicorn.*app' 2>/dev/null; sleep 1 &&
-          set -a && source .env && set +a &&
-          nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon
-          --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app &&
-          sleep 3 &&
-          echo 'Health:' &&
-          curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>' &&
-          (crontab -l 2>/dev/null | grep -q watchdog.sh || (crontab -l 2>/dev/null; echo '*/5 * * * * bash ~/buka/watchdog.sh') | crontab -) &&
-          echo 'Deploy OK'"
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk bash -s << 'SCRIPT'
+            export PATH="$HOME/.local/bin:$PATH"
+            cd ~/buka
+            python3 -m pip install flask gunicorn requests --user --quiet 2>&1 | tail -2
+            chmod +x ~/buka/watchdog.sh
+            python3 -c "from app import init_db; init_db(); print('DB OK')"
+            pkill -f "gunicorn.*app" 2>/dev/null || true
+            sleep 1
+            set -a && source .env && set +a
+            nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
+              --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app
+            sleep 3
+            echo "Health check:"
+            curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>'
+            echo "PHP proxy files:"
+            ls -la ~/public_html/
+            crontab -l 2>/dev/null | grep -q watchdog.sh || \
+              (crontab -l 2>/dev/null; echo "*/5 * * * * bash ~/buka/watchdog.sh") | crontab -
+            echo "Deploy OK"
+          SCRIPT
