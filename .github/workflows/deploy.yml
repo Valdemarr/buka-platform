@@ -31,10 +31,23 @@ jobs:
             export PATH="$HOME/.local/bin:$PATH"
             cd ~/buka
             python3 -m pip install flask gunicorn requests --user --quiet 2>&1 | tail -2
+            # Write watchdog script
+            cat > ~/buka/watchdog.sh << 'WATCHDOG'
+#!/bin/bash
+if ! pgrep -f "gunicorn.*app" > /dev/null; then
+  export PATH="$HOME/.local/bin:$PATH"
+  cd ~/buka
+  set -a && source .env && set +a
+  nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
+    --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app 2>&1
+  echo "[$(date)] WATCHDOG: restarted" >> ~/buka/watchdog.log
+fi
+WATCHDOG
+            chmod +x ~/buka/watchdog.sh
             python3 -c "from app import init_db; init_db(); print('DB OK')"
             pkill -f "gunicorn.*app" 2>/dev/null || true
             sleep 1
-            SECRET_KEY="buka-$(date +%s)" \
+            set -a && source .env && set +a
             nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
               --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app
             sleep 3
@@ -42,4 +55,8 @@ jobs:
             curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>'
             echo "PHP proxy files:"
             ls -la ~/public_html/
+            # Ensure watchdog cron is installed
+            if ! crontab -l 2>/dev/null | grep -q watchdog.sh; then
+              (crontab -l 2>/dev/null; echo "*/5 * * * * bash ~/buka/watchdog.sh") | crontab -
+            fi
           SCRIPT
