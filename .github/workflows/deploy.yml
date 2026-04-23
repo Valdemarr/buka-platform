@@ -21,42 +21,24 @@ jobs:
       - name: Upload files
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk "mkdir -p ~/buka/templates ~/public_html"
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py cvr_alert.py alert_email_template.html send_demo_alert.py buka.dk@buka.dk:~/buka/
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no app.py cvr_alert.py alert_email_template.html send_demo_alert.py watchdog.sh buka.dk@buka.dk:~/buka/
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no templates/*.html buka.dk@buka.dk:~/buka/templates/
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no public_html/index.php public_html/.htaccess buka.dk@buka.dk:~/public_html/
 
       - name: Start app
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk bash -s << 'SCRIPT'
-            export PATH="$HOME/.local/bin:$PATH"
-            cd ~/buka
-            python3 -m pip install flask gunicorn requests --user --quiet 2>&1 | tail -2
-            # Write watchdog script
-            cat > ~/buka/watchdog.sh << 'WATCHDOG'
-#!/bin/bash
-if ! pgrep -f "gunicorn.*app" > /dev/null; then
-  export PATH="$HOME/.local/bin:$PATH"
-  cd ~/buka
-  set -a && source .env && set +a
-  nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
-    --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app 2>&1
-  echo "[$(date)] WATCHDOG: restarted" >> ~/buka/watchdog.log
-fi
-WATCHDOG
-            chmod +x ~/buka/watchdog.sh
-            python3 -c "from app import init_db; init_db(); print('DB OK')"
-            pkill -f "gunicorn.*app" 2>/dev/null || true
-            sleep 1
-            set -a && source .env && set +a
-            nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon \
-              --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app
-            sleep 3
-            echo "Health check:"
-            curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>'
-            echo "PHP proxy files:"
-            ls -la ~/public_html/
-            # Ensure watchdog cron is installed
-            if ! crontab -l 2>/dev/null | grep -q watchdog.sh; then
-              (crontab -l 2>/dev/null; echo "*/5 * * * * bash ~/buka/watchdog.sh") | crontab -
-            fi
-          SCRIPT
+        run: >
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no buka.dk@buka.dk
+          "export PATH=$HOME/.local/bin:$PATH &&
+          cd ~/buka &&
+          python3 -m pip install flask gunicorn requests --user --quiet 2>&1 | tail -2 &&
+          chmod +x ~/buka/watchdog.sh &&
+          python3 -c 'from app import init_db; init_db(); print(\"DB OK\")' &&
+          pkill -f 'gunicorn.*app' 2>/dev/null; sleep 1 &&
+          set -a && source .env && set +a &&
+          nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --daemon
+          --access-logfile ~/buka/access.log --error-logfile ~/buka/error.log app:app &&
+          sleep 3 &&
+          echo 'Health:' &&
+          curl -s http://127.0.0.1:5000/ | grep -o '<title>.*</title>' &&
+          (crontab -l 2>/dev/null | grep -q watchdog.sh || (crontab -l 2>/dev/null; echo '*/5 * * * * bash ~/buka/watchdog.sh') | crontab -) &&
+          echo 'Deploy OK'"
